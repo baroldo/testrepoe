@@ -1,3 +1,56 @@
+sample 3: for assigning each customer to its own group if it doesnt match an exisitng one
+import pandas as pd
+import re
+from rapidfuzz import fuzz
+
+# -- Example starting DataFrame --
+# df = pd.read_csv("your_file.csv")
+# df['customer_name'] = ...
+
+# -- Clean customer names --
+suffixes = ['pty', 'ltd', 'limited', 'group', 'co', 'inc', 'corp', 'company', 'australia', 'australian']
+pattern = r'\b(?:' + '|'.join(suffixes) + r')\b'
+
+def clean_name(name):
+    name = name.lower()
+    name = re.sub(pattern, '', name)
+    name = re.sub(r'[^a-z0-9 ]+', '', name)
+    name = re.sub(r'\s+', ' ', name).strip()
+    return name
+
+df['cleaned_name'] = df['customer_name'].fillna('').apply(clean_name)
+
+# -- Create fuzzy groups --
+group_names = []
+group_ids = []
+group_counter = 0
+threshold = 90  # similarity threshold
+
+for name in df['cleaned_name']:
+    assigned = False
+    for idx, group in enumerate(group_names):
+        if fuzz.token_sort_ratio(name, group) >= threshold:
+            group_ids.append(idx)
+            assigned = True
+            break
+    if not assigned:
+        group_names.append(name)
+        group_ids.append(group_counter)
+        group_counter += 1
+
+df['name_group_id'] = group_ids
+df['grouped_name'] = [group_names[i] for i in group_ids]
+
+
+group_counts = df.groupby('grouped_name')['customer_id'].nunique().reset_index()
+group_counts.columns = ['grouped_name', 'unique_customer_count']
+df = df.merge(group_counts, on='grouped_name', how='left')
+
+
+
+
+
+
 # sample 2.1: refined groupings
 import pandas as pd
 import numpy as np
