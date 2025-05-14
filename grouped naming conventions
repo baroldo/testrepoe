@@ -1,3 +1,86 @@
+# sample 2: refined groupings
+
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import DBSCAN
+from sklearn.metrics.pairwise import cosine_distances
+from fuzzywuzzy import process
+import numpy as np
+import re
+
+# --- 1. CLEAN CUSTOMER NAMES ---
+def clean_name(name):
+    name = name.lower()
+    name = re.sub(r'\bpty\b|\bltd\b|\blimited\b|\bgroup\b|\bco\b|\binc\b', '', name)  # remove common suffixes
+    name = re.sub(r'[^a-z0-9 ]', '', name)  # remove punctuation
+    name = re.sub(r'\s+', ' ', name).strip()
+    return name
+
+df['cleaned_name'] = df['customer_name'].fillna('').apply(clean_name)
+
+# --- 2. TF-IDF ENCODING ---
+vectorizer = TfidfVectorizer(analyzer='char_wb', ngram_range=(3, 5))
+X = vectorizer.fit_transform(df['cleaned_name'])
+
+# --- 3. DBSCAN CLUSTERING ---
+clustering = DBSCAN(eps=0.2, min_samples=2, metric='cosine', n_jobs=-1)
+df['name_cluster'] = clustering.fit_predict(X)
+
+# --- 4. FIND MEDOID NAME FOR EACH CLUSTER ---
+def get_cluster_medoid_name(X, labels, names):
+    cluster_labels = np.unique(labels[labels != -1])
+    rep_names = {}
+
+    for clust in cluster_labels:
+        indices = np.where(labels == clust)[0]
+        vectors = X[indices]
+        dists = cosine_distances(vectors, vectors.mean(axis=0))
+        medoid_idx = indices[np.argmin(dists)]
+        rep_names[clust] = names.iloc[medoid_idx]
+    
+    return rep_names
+
+rep_names = get_cluster_medoid_name(X, clustering.labels_, df['customer_name'])
+df['grouped_name'] = df['name_cluster'].map(rep_names)
+df['grouped_name'] = df['grouped_name'].fillna(df['customer_name'])  # Keep original name for unclustered
+
+# --- 5. FUZZY MATCHING UNCLUSTERED NAMES TO EXISTING GROUPS ---
+ungrouped_mask = df['name_cluster'] == -1
+unmatched = df.loc[ungrouped_mask, 'cleaned_name']
+known_groups = df.loc[~ungrouped_mask, 'grouped_name'].unique()
+
+df.loc[ungrouped_mask, 'grouped_name'] = unmatched.apply(
+    lambda name: process.extractOne(name, known_groups)[0] if name else name
+)
+
+# --- 6. COUNT UNIQUE CUSTOMER IDs PER GROUP ---
+group_counts = df.groupby('grouped_name')['customer_id'].nunique().reset_index()
+group_counts.columns = ['grouped_name', 'unique_customer_count']
+
+# --- 7. MERGE GROUP SIZE BACK TO ORIGINAL DF ---
+df = df.merge(group_counts, on='grouped_name', how='left')
+
+# OPTIONAL: Preview top groups
+print(df[['customer_id', 'customer_name', 'grouped_name', 'unique_customer_count']].head(10))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import pandas as pd
 import re
 from collections import Counter
