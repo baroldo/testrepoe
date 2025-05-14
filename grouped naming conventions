@@ -1,0 +1,73 @@
+import pandas as pd
+import re
+from collections import Counter
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import DBSCAN
+
+# --------------------------
+# 1. Rank Common Words
+# --------------------------
+
+def tokenize(name):
+    name = str(name).lower()
+    name = re.sub(r'[^a-z0-9\s]', '', name)
+    return name.split()
+
+# Tokenize and count
+word_list = df['customer_name'].dropna().apply(tokenize)
+all_words = [word for sublist in word_list for word in sublist]
+word_freq = Counter(all_words)
+
+# View top common words
+word_freq_df = pd.DataFrame(word_freq.items(), columns=['word', 'count']).sort_values(by='count', ascending=False)
+print(word_freq_df.head(30))  # Optional: inspect this to choose custom stopwords
+
+# --------------------------
+# 2. Define Stopwords + Clean Names
+# --------------------------
+
+COMMON_WORDS_TO_REMOVE = [
+    'pty', 'ltd', 'limited', 'inc', 'llc', 'group', 'company', 'business', 'co',
+    'university', 'corporation', 'plc', 'trust', 'foundation', 'association'
+]
+
+def clean_name(name):
+    name = str(name).lower()
+    name = re.sub(r'[^a-z0-9\s]', '', name)  # remove punctuation
+    tokens = name.split()
+    tokens = [t for t in tokens if t not in COMMON_WORDS_TO_REMOVE]
+    return ' '.join(tokens)
+
+df['cleaned_name'] = df['customer_name'].apply(clean_name)
+
+# --------------------------
+# 3. TF-IDF Vectorization
+# --------------------------
+
+vectorizer = TfidfVectorizer(analyzer='char_wb', ngram_range=(3, 4))
+X = vectorizer.fit_transform(df['cleaned_name'])
+
+# --------------------------
+# 4. Clustering with DBSCAN
+# --------------------------
+
+clustering = DBSCAN(eps=0.3, min_samples=2, metric='cosine', n_jobs=-1)
+df['name_cluster'] = clustering.fit_predict(X)
+
+# --------------------------
+# 5. Assign Group Label from Most Common Name
+# --------------------------
+
+# For each cluster, assign the most common original name as the label
+rep_names = df[df['name_cluster'] != -1].groupby('name_cluster')['customer_name'].agg(lambda x: x.mode().iloc[0])
+df['grouped_name'] = df['name_cluster'].map(rep_names)
+
+# Optional: Fill noise points (cluster -1) with their original name
+df['grouped_name'] = df['grouped_name'].fillna(df['customer_name'])
+
+# --------------------------
+# ✅ Done
+# --------------------------
+
+# Preview result
+df[['customer_name', 'cleaned_name', 'name_cluster', 'grouped_name']].head(10)
