@@ -59,3 +59,57 @@ def seasonally_adjust_dataframe(df_wide, min_months=12, return_wide=True):
         return df_pivot
     else:
         return df_adjusted[['customer_number', 'month', 'turnover', 'turnover_adj', 'adjusted']]
+
+
+
+adjustment 2:
+
+
+import pandas as pd
+from statsmodels.tsa.seasonal import STL
+
+def seasonally_adjust_and_pivot(df_long, return_wide=True):
+    """
+    Seasonally adjusts turnover for each customer using all available history,
+    aligning to month-end dates, and optionally returns the result in wide format.
+    
+    Parameters:
+        df_long (pd.DataFrame): long format with columns ['customer_number', 'month', 'turnover']
+        return_wide (bool): If True, returns wide-format; else returns long-format with adjustments
+    
+    Returns:
+        pd.DataFrame: Seasonally adjusted DataFrame
+    """
+    df_long = df_long.copy()
+    
+    # Force month to datetime and align to month-end
+    df_long['month'] = pd.to_datetime(df_long['month']) + pd.offsets.MonthEnd(0)
+
+    def adjust_customer(group):
+        group = group.set_index('month').sort_index()
+
+        # Fill missing months using month-end frequency
+        full_idx = pd.date_range(start=group.index.min(), end=group.index.max(), freq='M')
+        group = group.reindex(full_idx)
+        group['customer_number'] = group['customer_number'].ffill()
+
+        # Attempt STL decomposition
+        try:
+            stl = STL(group['turnover'], period=12, robust=True)
+            result = stl.fit()
+            group['turnover_adj'] = group['turnover'] - result.seasonal
+        except Exception:
+            group['turnover_adj'] = group['turnover']
+
+        group['month'] = group.index
+        return group.reset_index(drop=True)
+
+    df_adjusted = df_long.groupby('customer_number', group_keys=False).apply(adjust_customer)
+
+    if return_wide:
+        df_wide = df_adjusted.pivot(index='customer_number', columns='month', values='turnover_adj')
+        df_wide.columns = df_wide.columns.strftime('%Y-%m-%d')  # Format with full date
+        return df_wide
+    else:
+        return df_adjusted[['customer_number', 'month', 'turnover', 'turnover_adj']]
+
