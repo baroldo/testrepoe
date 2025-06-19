@@ -1,0 +1,66 @@
+import pandas as pd
+from sklearn.ensemble import IsolationForest
+
+def detect_directional_anomalies(df, contamination=0.1, scaled_column='scaled_value'):
+    """
+    Detects anomalies in scaled transaction values for each customer using Isolation Forest,
+    and labels them as positive, negative, or normal based on the sign of the scaled value.
+    
+    Parameters:
+        df (pd.DataFrame): Long-format DataFrame with 'customer_id', 'date', and 'scaled_value'.
+        contamination (float): Proportion of data expected to be anomalous.
+        scaled_column (str): Column name for the scaled value (default is 'scaled_value').
+    
+    Returns:
+        pd.DataFrame: Original DataFrame with added 'is_anomaly' and 'anomaly_type' columns.
+    """
+
+    # Drop rows with missing scaled values
+    df_clean = df.dropna(subset=[scaled_column])
+    results = []
+
+    for cust_id, group in df_clean.groupby('customer_id'):
+        if len(group) < 5:
+            # Not enough data for anomaly detection
+            continue
+
+        group = group.sort_values('date')
+        X = group[[scaled_column]]
+
+        # Fit Isolation Forest
+        model = IsolationForest(contamination=contamination, random_state=42)
+        preds = model.fit_predict(X)
+
+        # Add anomaly flags
+        group = group.copy()
+        group['is_anomaly'] = preds == -1
+
+        # Label direction
+        group['anomaly_type'] = 'normal'
+        group.loc[group['is_anomaly'] & (group[scaled_column] > 0), 'anomaly_type'] = 'positive'
+        group.loc[group['is_anomaly'] & (group[scaled_column] < 0), 'anomaly_type'] = 'negative'
+
+        results.append(group)
+
+    # Concatenate results and merge back any untouched customers (with < 5 records)
+    df_anomalies = pd.concat(results, ignore_index=True)
+
+    # Optional: merge in any customers that were skipped (with < 5 rows)
+    untouched = df[~df['customer_id'].isin(df_anomalies['customer_id'].unique())].copy()
+    untouched['is_anomaly'] = False
+    untouched['anomaly_type'] = 'normal'
+
+    return pd.concat([df_anomalies, untouched], ignore_index=True)
+
+# ─────────────────────────────────────────
+# ✅ Usage Example:
+# Assuming df has: customer_id, date, transaction_value, scaled_value
+
+# df = ... (your input DataFrame)
+# df['scaled_value'] = ... (your scaling logic beforehand)
+
+df_result = detect_directional_anomalies(df)
+
+# Output: df_result now contains:
+# - 'is_anomaly': True/False
+# - 'anomaly_type': 'positive', 'negative', or 'normal'
