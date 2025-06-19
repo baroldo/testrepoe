@@ -1,0 +1,79 @@
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+import numpy as np
+
+# Step 1: Make sure 'date' is datetime
+df['date'] = pd.to_datetime(df['date'])
+
+# Step 2: Pivot to get customer time series
+df_pivot = df.pivot(index='date', columns='customer_id', values='transaction_value')
+
+# Step 3: Define a function to scale each customer's series
+def scale_customer(series):
+    # Drop NaNs
+    series = series.dropna()
+
+    if len(series) < 6:
+        return series  # Not enough data to scale meaningfully
+
+    # Choose the best scaler – you can experiment or automate this
+    scalers = {
+        'standard': StandardScaler(),
+        'minmax': MinMaxScaler(),
+        'robust': RobustScaler()
+    }
+
+    best_score = float('inf')
+    best_scaled = series.copy()
+    
+    for name, scaler in scalers.items():
+        scaled = scaler.fit_transform(series.values.reshape(-1, 1)).flatten()
+        # Scoring method: lower standard deviation means less sensitivity to outliers
+        score = np.std(scaled)
+        if score < best_score:
+            best_score = score
+            best_scaled = pd.Series(scaled, index=series.index)
+
+    return best_scaled
+
+# Step 4: Apply scaling per customer
+df_scaled = df_pivot.apply(scale_customer)
+
+# Step 5: Melt back to long format if needed
+df_scaled_long = df_scaled.reset_index().melt(id_vars='date', var_name='customer_id', value_name='scaled_value')
+
+# Detect values more than 2 standard deviations from the mean
+df_scaled_long['is_abnormal'] = df_scaled_long['scaled_value'].abs() > 2
+
+
+version 2
+
+
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+
+# Step 1: Ensure correct date format
+df['date'] = pd.to_datetime(df['date'])
+
+# Step 2: Pivot into time series format
+df_pivot = df.pivot(index='date', columns='customer_id', values='transaction_value')
+
+# Step 3: Apply StandardScaler per customer
+def scale_preserve_outliers(series):
+    if series.dropna().shape[0] < 6:
+        return series  # Not enough data
+    scaler = StandardScaler()
+    scaled = scaler.fit_transform(series.values.reshape(-1, 1)).flatten()
+    return pd.Series(scaled, index=series.index)
+
+df_scaled = df_pivot.apply(scale_preserve_outliers)
+
+# Step 4: Melt back to long format
+df_scaled_long = df_scaled.reset_index().melt(id_vars='date', var_name='customer_id', value_name='scaled_value')
+
+# Step 5: Identify months with large drop-offs or spikes
+# Example: flag values more than 2 std deviations away from the customer's mean
+df_scaled_long['is_abnormal'] = df_scaled_long['scaled_value'].abs() > 2
+df_scaled_long['is_large_drop'] = df_scaled_long['scaled_value'] < -2
+
