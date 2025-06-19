@@ -1,0 +1,37 @@
+import pandas as pd
+
+def calculate_last_two_active_diff(df, value_column='transaction_value'):
+    """
+    Calculates the difference between the last two non-zero transaction months per customer.
+    
+    Parameters:
+        df (pd.DataFrame): Must contain 'customer_id', 'date', and a transaction value column.
+        value_column (str): Name of the transaction value column (default = 'transaction_value').
+        
+    Returns:
+        pd.DataFrame: One row per customer with the last value, second last value, and their difference.
+    """
+    
+    # Filter for non-zero transactions
+    df_active = df[df[value_column] != 0].copy()
+    
+    # Sort to get the latest months in order
+    df_active = df_active.sort_values(['customer_id', 'date'], ascending=[True, True])
+    
+    # Take last two non-zero values per customer
+    df_active['rank'] = df_active.groupby('customer_id')['date'].rank(method='first', ascending=False)
+
+    last_two = df_active[df_active['rank'] <= 2].copy()
+    
+    # Pivot to get last and second last
+    pivoted = last_two.pivot_table(
+        index='customer_id',
+        columns='rank',
+        values=value_column
+    ).rename(columns={1.0: 'last_value', 2.0: 'second_last_value'})
+    
+    # Calculate difference
+    pivoted['value_diff'] = pivoted['last_value'] - pivoted['second_last_value']
+    pivoted['value_pct_change'] = pivoted['value_diff'] / pivoted['second_last_value']
+
+    return pivoted.reset_index()
