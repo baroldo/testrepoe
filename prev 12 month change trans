@@ -1,0 +1,61 @@
+import pandas as pd
+
+def calculate_diff_12_months_ago(df, value_column='transaction_value'):
+    """
+    Calculates the difference between the most recent non-zero transaction and the transaction 12 months prior,
+    per customer. If the 12-months-ago value doesn't exist, fills it with 0.
+    
+    Parameters:
+        df (pd.DataFrame): Must contain 'customer_id', 'date' (datetime), and the transaction value column.
+        value_column (str): Name of the transaction value column.
+        
+    Returns:
+        pd.DataFrame: One row per customer with latest value, 12-months-ago value, and difference/percent change.
+    """
+    
+    # Ensure date is datetime
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # Filter out zero values (optional: keep if needed)
+    df_active = df[df[value_column] != 0].copy()
+    
+    # Find the latest non-zero month per customer
+    latest_tx = df_active.sort_values(['customer_id', 'date'], ascending=[True, False])
+    latest_tx = latest_tx.groupby('customer_id').first().reset_index()
+    latest_tx = latest_tx.rename(columns={
+        'date': 'latest_date',
+        value_column: 'latest_value'
+    })
+
+    # Calculate the date 12 months before for each customer
+    latest_tx['date_12mo_ago'] = latest_tx['latest_date'] - pd.DateOffset(months=12)
+    
+    # Merge back to original to get the 12-months-ago value
+    df_12mo = df[['customer_id', 'date', value_column]].copy()
+    df_12mo = df_12mo.rename(columns={
+        'date': 'date_12mo_ago',
+        value_column: 'value_12mo_ago'
+    })
+
+    # Merge to find value from 12 months ago
+    result = pd.merge(
+        latest_tx,
+        df_12mo,
+        on=['customer_id', 'date_12mo_ago'],
+        how='left'
+    )
+
+    # Fill missing 12-months-ago value with 0
+    result['value_12mo_ago'] = result['value_12mo_ago'].fillna(0)
+
+    # Calculate difference and percent change
+    result['value_diff'] = result['latest_value'] - result['value_12mo_ago']
+    result['value_pct_change'] = result.apply(
+        lambda row: 0 if row['value_12mo_ago'] == 0 else row['value_diff'] / row['value_12mo_ago'],
+        axis=1
+    )
+
+    return result[[
+        'customer_id', 'latest_date', 'latest_value', 'date_12mo_ago',
+        'value_12mo_ago', 'value_diff', 'value_pct_change'
+    ]]
