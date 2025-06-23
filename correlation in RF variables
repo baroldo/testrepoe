@@ -1,0 +1,45 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+
+# === Step 1: Construct the DataFrame with all necessary columns ===
+df = pd.DataFrame({
+    'attrition_prob_last': attrition_prob_last_month,
+    'attrition_prob_this': attrition_prob_this_month,
+    'turnover_last': turnover_last_month,
+    'turnover_this': turnover_this_month
+})
+
+# Calculate changes
+df['change_in_attrition_prob'] = df['attrition_prob_this'] - df['attrition_prob_last']
+df['change_in_turnover'] = df['turnover_this'] - df['turnover_last']
+df['pct_change_turnover'] = df['change_in_turnover'] / df['turnover_last'].replace(0, np.nan)
+
+# Drop rows with missing values (e.g., divide by zero)
+df = df.dropna(subset=['pct_change_turnover'])
+
+# === Step 2: Correlation analysis ===
+corr_raw = df['change_in_attrition_prob'].corr(df['change_in_turnover'])
+corr_pct = df['change_in_attrition_prob'].corr(df['pct_change_turnover'])
+
+print(f"Correlation (raw turnover change vs attrition prob change): {corr_raw:.2f}")
+print(f"Correlation (% turnover change vs attrition prob change): {corr_pct:.2f}")
+
+# === Step 3: Visualize the relationship ===
+sns.scatterplot(x='pct_change_turnover', y='change_in_attrition_prob', data=df)
+plt.axhline(0, color='grey', linestyle='--')
+plt.axvline(0, color='grey', linestyle='--')
+plt.title("Impact of % Turnover Change on Attrition Probability Change")
+plt.xlabel("Percentage Change in Turnover")
+plt.ylabel("Change in Attrition Probability")
+plt.show()
+
+# === Step 4: Linear regression (optional, for quantifying impact) ===
+X = df[['pct_change_turnover']]
+X = sm.add_constant(X)
+y = df['change_in_attrition_prob']
+
+model = sm.OLS(y, X).fit()
+print(model.summary())
