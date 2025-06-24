@@ -1,0 +1,17 @@
+import shap
+
+# 1. Initialize SHAP explainer (TreeExplainer is optimized for tree models)
+explainer = shap.TreeExplainer(rf_model)
+
+# 2. Select your group of customers (e.g., high churn risk, or by segment)
+group = X_test[X_test['segment'] == 'High Value']  # or whatever filter you want
+
+# 3. Calculate SHAP values for the group
+shap_values = explainer.shap_values(group)
+
+# 4. For classification models, shap_values is a list (one for each class)
+# Use the one for the "churn" class (typically index 1)
+shap_values_churn = shap_values[1]
+
+# 5. Summarize average impact across the group
+shap.summary_plot(shap_values_churn, group)  # beeswarm plot
