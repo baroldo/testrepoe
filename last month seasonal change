@@ -35,3 +35,42 @@ def calculate_last_two_active_diff(df, value_column='transaction_value'):
     pivoted['value_pct_change'] = pivoted['value_diff'] / pivoted['second_last_value']
 
     return pivoted.reset_index()
+
+
+
+
+second last month:import pandas as pd
+
+# Sample DataFrame
+df = pd.DataFrame({
+    'customer_number': [1, 1, 1, 2, 2, 2, 2],
+    'month': ['2023-01', '2023-02', '2023-03', '2023-01', '2023-02', '2023-03', '2023-04'],
+    'transactions': [0, 5, 10, 0, 20, 0, 30]
+})
+
+# Convert month to datetime
+df['month'] = pd.to_datetime(df['month'])
+
+# Filter out rows with 0 transactions
+df_nonzero = df[df['transactions'] != 0]
+
+# Sort by customer and month
+df_nonzero = df_nonzero.sort_values(['customer_number', 'month'])
+
+# Function to get second last non-zero transaction month and value
+def get_second_last_info(group):
+    if len(group) >= 2:
+        row = group.iloc[-2]
+        return pd.Series({'second_last_month': row['month'], 'transaction_value': row['transactions']})
+    else:
+        return pd.Series({'second_last_month': pd.NaT, 'transaction_value': None})
+
+# Apply the function per customer
+result = df_nonzero.groupby('customer_number').apply(get_second_last_info).reset_index()
+
+# Optional: format the month
+result['second_last_month'] = result['second_last_month'].dt.strftime('%Y-%m')
+
+print(result)
+
+
