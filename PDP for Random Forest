@@ -1,0 +1,38 @@
+# 📦 Import required libraries
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.inspection import PartialDependenceDisplay
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+
+# 🧾 Step 1: Load your dataset (replace with your actual data file or source)
+# Make sure your dataset includes a binary churn column: 1 = churn, 0 = no churn
+df = pd.read_csv("your_data.csv")  # Replace with your actual file or DataFrame
+
+# 🎯 Step 2: Define features and target
+X = df.drop(columns="churn")  # Features
+y = df["churn"]               # Target
+
+# 🧪 Step 3: Split into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 🌲 Step 4: Train Random Forest model
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+
+# 📊 Step 5: Create Partial Dependence Plot for your top feature
+# Replace 'purchase_frequency' with your actual top feature name
+feature_name = "purchase_frequency"
+
+PartialDependenceDisplay.from_estimator(
+    rf,
+    X_train,
+    features=[feature_name],
+    kind="average",       # 'average' shows the mean effect
+    grid_resolution=100,  # How many points to plot along the feature range
+    figsize=(8, 5)
+)
+
+plt.title(f'Partial Dependence Plot for {feature_name}')
+plt.show()
