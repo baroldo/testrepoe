@@ -15,3 +15,51 @@ shap_values_churn = shap_values[1]
 
 # 5. Summarize average impact across the group
 shap.summary_plot(shap_values_churn, group)  # beeswarm plot
+
+edition 2:
+
+# 📦 Import required libraries
+import pandas as pd
+import numpy as np
+import shap
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
+# 🔄 Step 1: Load your dataset
+# Replace with your actual dataset path or DataFrame
+df = pd.read_csv("your_data.csv")  # Must include a 'churn' column
+
+# 🎯 Step 2: Define features (X) and target (y)
+X = df.drop(columns="churn")
+y = df["churn"]
+
+# 🧪 Step 3: Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 🌲 Step 4: Train the Random Forest model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# 🔍 Step 5: Set up SHAP for explanation
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_test)  # Class 1 = churn
+
+# 🧠 Step 6A: Explain a single customer prediction
+shap.initjs()
+customer_idx = 10  # Choose any index in the test set
+shap.force_plot(
+    explainer.expected_value[1],         # Base churn risk
+    shap_values[1][customer_idx],        # SHAP values for this customer
+    X_test.iloc[customer_idx],           # Actual feature values for this customer
+)
+
+# 🧠 Step 6B: Explain global feature importance across all customers
+shap.summary_plot(shap_values[1], X_test)
+
+# 🧠 Step 6C: (Optional) Segment-specific SHAP explanation
+# Example: Focus on low engagement customers if such a feature exists
+if "engagement_score" in X_test.columns:
+    segment = X_test[X_test["engagement_score"] < 0.3]
+    segment_shap_values = explainer.shap_values(segment)
+    shap.summary_plot(segment_shap_values[1], segment)
