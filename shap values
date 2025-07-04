@@ -68,19 +68,62 @@ if "engagement_score" in X_test.columns:
 
 3. change for index:
 
-# Select customer by ID
-customer_row = X_test.loc[["abc145"]]  # Ensure it's a DataFrame
+import shap
+import pandas as pd
 
-# Get SHAP values for that customer
-shap_values_customer = explainer.shap_values(customer_row)
+# -----------------------------
+# STEP 1: Clean and prepare data
+# -----------------------------
 
-# Visualize the SHAP explanation
-shap.plots.waterfall(shap.Explanation(
-    values=shap_values_customer[1][0],
-    base_values=explainer.expected_value[1],
-    data=customer_row.iloc[0],
-    feature_names=customer_row.columns
-))
+def clean_features_for_model(X):
+    X_clean = X.copy()
+    
+    # Convert bool columns to float
+    bool_cols = X_clean.select_dtypes(bool).columns
+    X_clean[bool_cols] = X_clean[bool_cols].astype(float)
+    
+    # Attempt to convert any object columns to numeric (e.g., from encoded dates or categories)
+    X_clean = X_clean.apply(pd.to_numeric, errors='coerce')
+    
+    # Fill any remaining NaNs with column means
+    X_clean = X_clean.fillna(X_clean.mean(numeric_only=True))
+    
+    return X_clean
 
+# Clean training data and full data
+X_clean = clean_features_for_model(X)
+X_train_clean = clean_features_for_model(X_train)
+
+# -----------------------------
+# STEP 2: Get customer row
+# -----------------------------
+
+customer_id = "abc145"
+
+# If customer ID is in a column
+customer_row = X_clean[X_clean["customer_id"] == customer_id]
+
+# Or if it's in the index:
+# customer_row = X_clean.loc[[customer_id]]
+
+# Ensure only one row returned
+assert len(customer_row) == 1, f"Customer {customer_id} not found or not unique."
+
+# -----------------------------
+# STEP 3: Run SHAP
+# -----------------------------
+
+# Create SHAP explainer
+explainer = shap.Explainer(model, X_train_clean)
+
+# Get SHAP values for customer
+shap_values = explainer(customer_row)
+
+# -----------------------------
+# STEP 4: Plot SHAP explanation
+# -----------------------------
+
+# Show waterfall plot for the single customer
+shap.plots.waterfall(shap_values[0])
 
 
