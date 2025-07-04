@@ -63,3 +63,24 @@ if "engagement_score" in X_test.columns:
     segment = X_test[X_test["engagement_score"] < 0.3]
     segment_shap_values = explainer.shap_values(segment)
     shap.summary_plot(segment_shap_values[1], segment)
+
+
+
+3. change for index:
+
+# Select customer by ID
+customer_row = X_test.loc[["abc145"]]  # Ensure it's a DataFrame
+
+# Get SHAP values for that customer
+shap_values_customer = explainer.shap_values(customer_row)
+
+# Visualize the SHAP explanation
+shap.plots.waterfall(shap.Explanation(
+    values=shap_values_customer[1][0],
+    base_values=explainer.expected_value[1],
+    data=customer_row.iloc[0],
+    feature_names=customer_row.columns
+))
+
+
+
