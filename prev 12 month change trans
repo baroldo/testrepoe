@@ -55,6 +55,78 @@ def calculate_diff_12_months_ago(df, value_column='transaction_value'):
         axis=1
     )
 
+
+2nd commit: create a flag column for when missing value have been filled.
+
+import pandas as pd
+
+def calculate_diff_12_months_ago(df, value_column='transaction_value'):
+    """
+    Calculates the difference between the most recent non-zero transaction and the transaction 12 months prior,
+    per customer. If the 12-months-ago value doesn't exist, fills it with the customer's median transaction value
+    and adds a flag to indicate it was filled.
+    
+    Parameters:
+        df (pd.DataFrame): Must contain 'customer_id', 'date' (datetime), and the transaction value column.
+        value_column (str): Name of the transaction value column.
+        
+    Returns:
+        pd.DataFrame: One row per customer with latest value, 12-months-ago value, diff/percent change, and fill flag.
+    """
+    
+    # Ensure date is datetime
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # Filter out zero transactions
+    df_active = df[df[value_column] != 0].copy()
+
+    # Step 1: Get the latest non-zero transaction per customer
+    latest_tx = df_active.sort_values(['customer_id', 'date'], ascending=[True, False])
+    latest_tx = latest_tx.groupby('customer_id').first().reset_index()
+    latest_tx = latest_tx.rename(columns={
+        'date': 'latest_date',
+        value_column: 'latest_value'
+    })
+
+    # Step 2: Compute date 12 months before latest
+    latest_tx['date_12mo_ago'] = latest_tx['latest_date'] - pd.DateOffset(months=12)
+
+    # Step 3: Get 12-month-ago transaction values
+    df_12mo = df[['customer_id', 'date', value_column]].copy()
+    df_12mo = df_12mo.rename(columns={
+        'date': 'date_12mo_ago',
+        value_column: 'value_12mo_ago'
+    })
+
+    result = pd.merge(
+        latest_tx,
+        df_12mo,
+        on=['customer_id', 'date_12mo_ago'],
+        how='left'
+    )
+
+    # Step 4: Add median per customer
+    customer_median = df_active.groupby('customer_id')[value_column].median().reset_index()
+    customer_median = customer_median.rename(columns={value_column: 'median_value'})
+
+    result = result.merge(customer_median, on='customer_id', how='left')
+
+    # Step 5: Flag and fill where 12mo value is missing
+    result['value_12mo_was_filled'] = result['value_12mo_ago'].isna().astype(int)
+    result['value_12mo_ago'] = result['value_12mo_ago'].fillna(result['median_value'])
+
+    # Step 6: Calculate diff and % change
+    result['value_diff'] = result['latest_value'] - result['value_12mo_ago']
+    result['value_pct_change'] = result.apply(
+        lambda row: 0 if row['value_12mo_ago'] == 0 else row['value_diff'] / row['value_12mo_ago'],
+        axis=1
+    )
+
+    return result[[
+        'customer_id', 'latest_date', 'latest_value', 'date_12mo_ago',
+        'value_12mo_ago', 'value_12mo_was_filled', 'value_diff', 'value_pct_change'
+    ]]
+
     return result[[
         'customer_id', 'latest_date', 'latest_value', 'date_12mo_ago',
         'value_12mo_ago', 'value_diff', 'value_pct_change'
