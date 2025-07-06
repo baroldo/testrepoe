@@ -73,4 +73,56 @@ result['second_last_month'] = result['second_last_month'].dt.strftime('%Y-%m')
 
 print(result)
 
+ITERATION 3: FILL MISSING VALUES WITH MEDIAN AND ADD FLAG.
+
+import pandas as pd
+
+def calculate_last_two_active_diff(df, value_column='transaction_value'):
+    """
+    Calculates the difference between the last two non-zero and non-NaN transaction months per customer.
+    Fills missing second-last values with the customer's median and flags when this occurs.
+
+    Parameters:
+        df (pd.DataFrame): Must contain 'customer_id', 'date', and a transaction value column.
+        value_column (str): Name of the transaction value column (default = 'transaction_value').
+
+    Returns:
+        pd.DataFrame: One row per customer with last and second last values, their difference,
+                      percentage change, and a flag for whether the second last value was filled.
+    """
+
+    # Filter out zero and NaN transactions
+    df_active = df[(df[value_column] != 0) & (~df[value_column].isna())].copy()
+
+    # Sort to get the latest months in order
+    df_active = df_active.sort_values(['customer_id', 'date'], ascending=[True, True])
+
+    # Rank to find last and second last
+    df_active['rank'] = df_active.groupby('customer_id')['date'].rank(method='first', ascending=False)
+
+    last_two = df_active[df_active['rank'] <= 2].copy()
+
+    # Pivot to get last and second last values side-by-side
+    pivoted = last_two.pivot_table(
+        index='customer_id',
+        columns='rank',
+        values=value_column
+    ).rename(columns={1.0: 'last_value', 2.0: 'second_last_value'})
+
+    # Compute median values for each customer
+    customer_median = df_active.groupby('customer_id')[value_column].median()
+
+    # Flag and fill missing second_last_value with median
+    pivoted['second_last_was_filled'] = pivoted['second_last_value'].isna().astype(int)
+    pivoted['second_last_value'] = pivoted['second_last_value'].fillna(customer_median)
+
+    # Calculate difference and percent change
+    pivoted['value_diff'] = pivoted['last_value'] - pivoted['second_last_value']
+    pivoted['value_pct_change'] = pivoted.apply(
+        lambda row: 0 if row['second_last_value'] == 0 else row['value_diff'] / row['second_last_value'],
+        axis=1
+    )
+
+    return pivoted.reset_index()
+
 
