@@ -127,3 +127,23 @@ shap_values = explainer(customer_row)
 shap.plots.waterfall(shap_values[0])
 
 
+
+test 3: shap after reset
+
+import shap
+
+# Step 1: Find the row for customer 'abl209'
+row = df_model[df_model['customer_number'] == 'abl209']
+
+# Step 2: Drop the 'customer_number' column (if it’s not part of the features used to train the model)
+X_row = row.drop(columns=['customer_number'])
+
+# Step 3: Create SHAP explainer and compute SHAP values
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_row)
+
+# Step 4: Visualize how features impacted the prediction
+shap.force_plot(explainer.expected_value, shap_values[0], X_row.iloc[0], matplotlib=True)
+
+
+
