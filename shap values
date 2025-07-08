@@ -1,4 +1,4 @@
-import shap
+mom import shap
 
 # 1. Initialize SHAP explainer (TreeExplainer is optimized for tree models)
 explainer = shap.TreeExplainer(rf_model)
@@ -178,3 +178,41 @@ explanation = shap.Explanation(
 
 # Plot waterfall
 shap.plots.waterfall(explanation)
+
+
+sample data:
+import pandas as pd
+import shap
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.datasets import fetch_california_housing
+import matplotlib.pyplot as plt
+
+# 1. Load a sample regression dataset
+data = fetch_california_housing()
+X = pd.DataFrame(data.data, columns=data.feature_names)
+y = data.target
+
+# 2. Train/test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+
+# 3. Fit RandomForest model
+model = RandomForestRegressor()
+model.fit(X_train, y_train)
+
+# 4. Create SHAP explainer using X_train as background
+explainer = shap.Explainer(model, X_train)
+
+# 5. Compute SHAP values for a single row (e.g., row 0 of test set)
+shap_values = explainer(X_test.iloc[[0]])  # Must be double brackets for DataFrame
+
+# 6. Initialize JS for force plot
+shap.initjs()
+
+# 7. Plot force plot
+shap.force_plot(
+    shap_values.base_values[0],   # baseline prediction
+    shap_values.values[0],        # SHAP values for the row
+    shap_values.data[0],          # feature values for the row
+    feature_names=X_test.columns  # optional for clarity
+)
