@@ -1,0 +1,17 @@
+import pandas as pd
+
+# Example DataFrame
+data = {
+    'Category': ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'],
+    'Value': [10, 20, 30, 5, 15, 25, 40, 50, 60]
+}
+df = pd.DataFrame(data)
+
+# Function to assign quantile labels
+def assign_quantiles(group):
+    return pd.qcut(group, q=5, labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
+
+# Apply quantile assignment for each category
+df['Quantile'] = df.groupby('Category')['Value'].transform(assign_quantiles)
+
+print(df)
