@@ -14,7 +14,11 @@ df_unique = df.drop_duplicates(subset=['Store', 'Customer'])
 # Function to assign quantile labels
 def assign_quantiles(group):
     ranked = group.rank(method='average')  # Ensure unique values
-    return pd.qcut(ranked, q=5, labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
+    try:
+        return pd.qcut(ranked, q=5, labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'], duplicates='drop')
+    except ValueError:
+        # If bin edges are not unique, assign NaN
+        return pd.Series([None] * len(group), index=group.index)
 
 # Apply quantile assignment for each store
 df_unique['Quantile'] = df_unique.groupby('Store')['Value'].transform(assign_quantiles)
