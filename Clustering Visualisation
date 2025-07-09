@@ -1,20 +1,4 @@
-import pandas as pd
-import numpy as np
-from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
-
-# Generate a synthetic dataset with 1000 samples and 3 clusters
-data, labels = make_blobs(n_samples=1000, centers=3, n_features=2, random_state=42)
-
-# Create a DataFrame for the dataset
-df = pd.DataFrame(data, columns=['Feature_1', 'Feature_2'])
-
-# Perform K-Means clustering
-kmeans = KMeans(n_clusters=3, random_state=42)
-df['Cluster'] = kmeans.fit_predict(df[['Feature_1', 'Feature_2']])
-
-# Visualize the clusters
+# Visualize the clusters with adjusted axes
 plt.figure(figsize=(8, 6))
 for cluster in range(3):
     cluster_data = df[df['Cluster'] == cluster]
@@ -23,8 +7,7 @@ plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], color=
 plt.title('Clustering Analysis')
 plt.xlabel('Feature 1')
 plt.ylabel('Feature 2')
+plt.xlim(df['Feature_1'].min() - 1, df['Feature_1'].max() + 1)  # Adjust x-axis limits
+plt.ylim(df['Feature_2'].min() - 1, df['Feature_2'].max() + 1)  # Adjust y-axis limits
 plt.legend()
 plt.show()
-
-# Display the first few rows of the DataFrame
-print(df.head())
