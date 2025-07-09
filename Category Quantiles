@@ -2,16 +2,24 @@ import pandas as pd
 
 # Example DataFrame
 data = {
-    'Category': ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'],
-    'Value': [10, 20, 30, 5, 15, 25, 40, 50, 60]
+    'Store': ['S1', 'S1', 'S1', 'S2', 'S2', 'S2', 'S3', 'S3', 'S3'],
+    'Customer': ['C1', 'C2', 'C1', 'C3', 'C4', 'C3', 'C5', 'C6', 'C5'],
+    'Value': [10, 20, 10, 5, 15, 5, 40, 50, 40]
 }
 df = pd.DataFrame(data)
 
+# Remove duplicate customers within each store
+df_unique = df.drop_duplicates(subset=['Store', 'Customer'])
+
 # Function to assign quantile labels
 def assign_quantiles(group):
-    return pd.qcut(group, q=5, labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
+    ranked = group.rank(method='average')  # Ensure unique values
+    return pd.qcut(ranked, q=5, labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
 
-# Apply quantile assignment for each category
-df['Quantile'] = df.groupby('Category')['Value'].transform(assign_quantiles)
+# Apply quantile assignment for each store
+df_unique['Quantile'] = df_unique.groupby('Store')['Value'].transform(assign_quantiles)
+
+# Merge quantile labels back to the original DataFrame
+df = df.merge(df_unique[['Store', 'Customer', 'Quantile']], on=['Store', 'Customer'], how='left')
 
 print(df)
