@@ -1,0 +1,18 @@
+import pandas as pd
+
+# Example data
+df = pd.DataFrame({
+    'value': [10, 23, 35, 47, 55, 62, 74, 85, 93, 105, 120, 135, 150, 165, 180, 200, 215, 230, 250, 270]
+})
+
+# Use qcut to bin into 10 quantiles
+bins = pd.qcut(df['value'], q=10, duplicates='drop')
+
+# Create custom labels from bin edges
+bin_edges = bins.cat.categories
+labels = [f"[{round(interval.left, 1)} – {round(interval.right, 1)}]" for interval in bin_edges]
+
+# Map bins to labels
+df['value_group'] = pd.cut(df['value'], bins=bin_edges, labels=labels, include_lowest=True)
+
+print(df)
