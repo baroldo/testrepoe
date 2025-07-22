@@ -1,18 +1,20 @@
 import pandas as pd
 
-# Example data
+# Example: proportions between 0 and 1
 df = pd.DataFrame({
-    'value': [10, 23, 35, 47, 55, 62, 74, 85, 93, 105, 120, 135, 150, 165, 180, 200, 215, 230, 250, 270]
+    'value': [0.01, 0.05, 0.07, 0.12, 0.15, 0.18, 0.22, 0.28, 0.35, 0.42, 0.48, 0.53, 0.58, 0.65, 0.72, 0.78, 0.85, 0.91, 0.95, 0.99]
 })
 
-# Use qcut to bin into 10 quantiles
+# Create quantile-based bins
 bins = pd.qcut(df['value'], q=10, duplicates='drop')
 
-# Create custom labels from bin edges
+# Extract bin edges
 bin_edges = bins.cat.categories
-labels = [f"[{round(interval.left, 1)} – {round(interval.right, 1)}]" for interval in bin_edges]
 
-# Map bins to labels
+# Format labels as percentages with "%" sign
+labels = [f"[{interval.left * 100:.1f}% – {interval.right * 100:.1f}%]" for interval in bin_edges]
+
+# Apply new labels using pd.cut
 df['value_group'] = pd.cut(df['value'], bins=bin_edges, labels=labels, include_lowest=True)
 
 print(df)
