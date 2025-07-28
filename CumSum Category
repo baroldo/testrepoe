@@ -1,0 +1,5 @@
+df['Cumulative_Pct'] = (
+    df.groupby('Category')['Value']
+      .cumsum() / df.groupby('Category')['Value']
+                      .transform('sum') * 100
+)
