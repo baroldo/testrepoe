@@ -1,0 +1,18 @@
+import pandas as pd
+
+# Example data
+df = pd.DataFrame({
+    'value': [0.01, 0.05, 0.07, 0.12, 0.15, 0.18, 0.22, 0.28, 0.35, 0.42,
+              0.48, 0.53, 0.58, 0.65, 0.72, 0.78, 0.85, 0.91, 0.95, 0.99]
+})
+
+# Create quantile-based bins with bin edges only
+_, bin_edges = pd.qcut(df['value'], q=10, retbins=True, duplicates='drop')
+
+# Create readable labels without brackets or commas
+labels = [f"{left * 100:.1f}% – {right * 100:.1f}%" for left, right in zip(bin_edges[:-1], bin_edges[1:])]
+
+# Apply the labels
+df['value_group'] = pd.cut(df['value'], bins=bin_edges, labels=labels, include_lowest=True)
+
+print(df)
